@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+
+	"github.com/latifrons/soccerdash"
 )
 
 func Receive() {
@@ -36,4 +38,8 @@ func task(conn net.Conn) {
 		}
 		// Do sth. with msg
 	}
+}
+
+func deserialize(str string) soccerdash.Message {
+	// Do sth.
 }
