@@ -1,7 +1,7 @@
 package receive
 
 import (
-	"config"
+	"encoding/json"
 	"fmt"
 	"net"
 	"strconv"
@@ -9,8 +9,14 @@ import (
 	"github.com/latifrons/soccerdash"
 )
 
+const (
+	Host   = "127.0.0.1"
+	Port   = 2020
+	MsgLen = 64
+)
+
 func Receive() {
-	address := config.Host + ":" + strconv.Itoa(config.Port)
+	address := Host + ":" + strconv.Itoa(Port)
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		fmt.Println(err)
@@ -30,16 +36,18 @@ func Receive() {
 func task(conn net.Conn) {
 	defer conn.Close()
 	for {
-		msg := make([]byte, 64)
+		msg := make([]byte, MsgLen)
 		_, err := conn.Read(msg)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		// Do sth. with msg
+		var obj soccerdash.Message
+		err := json.Unmarshal(msg, &obj)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		// Do sth with obj
 	}
-}
-
-func deserialize(str string) soccerdash.Message {
-	// Do sth.
 }
