@@ -3,10 +3,18 @@ package main
 import (
 	"fmt"
 	"net"
+	"strconv"
+)
+
+const (
+	Host   = "127.0.0.1"
+	Port   = 2020
+	MsgLen = 64
 )
 
 func main() {
-	ln, err := net.Listen("tcp", "127.0.0.1:2020")
+	address := Host + ":" + strconv.Itoa(Port)
+	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -16,21 +24,40 @@ func main() {
 		conn, err := ln.Accept()
 		if err != nil {
 			fmt.Println(err)
-			return
+			continue
 		}
-		go task(conn)
+		go handleConnection(conn)
 	}
 }
 
-func task(conn net.Conn) {
+func handleConnection(conn net.Conn) {
 	defer conn.Close()
+	readChan := make(chan []byte)
+	endChan := make(chan bool)
+	go readMsg(conn, readChan, endChan)
 	for {
-		msg := make([]byte, 64)
+		select {
+		case <-readChan:
+		case end := <-endChan:
+			if end {
+				break
+			}
+		default:
+			break
+		}
+	}
+}
+
+func readMsg(conn net.Conn, readChan chan<- []byte, endChan chan<- bool) {
+	for {
+		msg := make([]byte, MsgLen)
 		_, err := conn.Read(msg)
 		if err != nil {
 			fmt.Println(err)
-			return
+			break
 		}
-		fmt.Println(string(msg))
+		fmt.Println("Received:", string(msg))
+		readChan <- msg
 	}
+	endChan <- true
 }
