@@ -5,21 +5,16 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"time"
+
+	"github.com/latifrons/soccerdash"
 )
 
 // TCP通信全局变量
 const (
 	Host   = "127.0.0.1" /* 本地IP地址 */
 	Port   = 2020        /* 本地端口 */
-	MsgLen = 64          /* 消息长度上界 */
+	MsgLen = 1024        /* 消息长度上界 */
 )
-
-// Message 消息类型
-type Message struct {
-	NodeName string `json:"nodename"` /* 节点名 */
-	BlockID  int64  `json:"blockid"`  /* 区块编号 */
-}
 
 // NodeInfo 节点信息类型
 type NodeInfo struct {
@@ -58,29 +53,62 @@ func main() {
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	readChan := make(chan []byte) /* 读消息 */
-	endChan := make(chan bool)    /* 读消息结束 */
-	go readMsg(conn, readChan, endChan)
+	readChan := make(chan []byte, MsgLen<<3) /* 读消息 */
+	lenChan := make(chan int)                /* 消息长度 */
+	endChan := make(chan bool)               /* 读消息结束 */
+	go readMsg(conn, readChan, lenChan, endChan)
 	for {
 		select {
 		case msg := <-readChan:
-			currentTime := int64(time.Now().Nanosecond())
-			var obj Message
-			err := json.Unmarshal(msg, &obj) /* 反序列化 */
+			// currentTime := int64(time.Now().Nanosecond())
+			// fmt.Println(msg)
+			var msgObj soccerdash.Message
+			len := <-lenChan
+			err := json.Unmarshal(msg[:len], &msgObj) /* 反序列化 */
 			if err != nil {
 				fmt.Println(err)
 				return
 			}
-			// fmt.Println("Node name:", obj.NodeName)
-			// fmt.Println("Block ID:", obj.BlockID)
-			nodeAddr := conn.RemoteAddr()
-			if _, blockFound := blockPushTime[obj.BlockID]; !blockFound /* 出块尚未被记录 */ {
-				blockPushTime[obj.BlockID] = currentTime
-			}
-			if ni, nodeFound := nodeMap[obj.NodeName]; nodeFound { /* 节点已经被记录 */
-				ni.update(obj.BlockID, currentTime, blockPushTime[obj.BlockID])
-			} else /* 节点尚未被记录 */ {
-				nodeMap[obj.NodeName] = *newNodeInfo(nodeAddr, obj.BlockID, currentTime, blockPushTime[obj.BlockID])
+			switch msgObj.Key {
+			case "NodeName":
+				// TODO 节点名
+				fmt.Println("NodeName:", msgObj.Value)
+				break
+			case "Version":
+				// TODO 运行版本
+				fmt.Println("Version:", msgObj.Value)
+				break
+			case "NodeDelay":
+				// TODO 节点延迟
+				fmt.Println("NodeDelay:", msgObj.Value)
+				break
+			case "ConnNum":
+				// TODO 连接数
+				fmt.Println("ConnNum:")
+				break
+			case "LatestSequencer":
+				// TODO 最新区块
+				// nodeAddr := conn.RemoteAddr()
+				// if _, blockFound := blockPushTime[obj.BlockID]; !blockFound /* 出块尚未被记录 */ {
+				// 	blockPushTime[obj.BlockID] = currentTime
+				// }
+				// if ni, nodeFound := nodeMap[obj.NodeName]; nodeFound { /* 节点已经被记录 */
+				// 	ni.update(obj.BlockID, currentTime, blockPushTime[obj.BlockID])
+				// } else /* 节点尚未被记录 */ {
+				// 	nodeMap[obj.NodeName] = *newNodeInfo(nodeAddr, obj.BlockID, currentTime, blockPushTime[obj.BlockID])
+				// }
+				fmt.Println("LatestSequencer:")
+				break
+			case "IsProducer":
+				// TODO 出块委员会
+				fmt.Println("IsProducer:")
+				break
+			case "TxPoolNum":
+				// TODO 待处理交易
+				fmt.Println("TxPoolNum:")
+				break
+			default:
+				fmt.Println("Msg format err!")
 			}
 		case end := <-endChan:
 			if end {
@@ -92,15 +120,16 @@ func handleConnection(conn net.Conn) {
 	}
 }
 
-func readMsg(conn net.Conn, readChan chan<- []byte, endChan chan<- bool) {
+func readMsg(conn net.Conn, readChan chan<- []byte, lenChan chan<- int, endChan chan<- bool) {
 	for {
 		msg := make([]byte, MsgLen)
-		_, err := conn.Read(msg)
+		len, err := conn.Read(msg)
 		if err != nil {
 			fmt.Println(err)
 			break
 		}
 		readChan <- msg
+		lenChan <- len
 	}
 	endChan <- true
 }
