@@ -1,35 +1,43 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/latifrons/soccerdash"
 )
 
 // TCP通信全局变量
 const (
-	Host   = "127.0.0.1" /* 本地IP地址 */
-	Port   = 2020        /* 本地端口 */
-	MsgLen = 1024        /* 消息长度上界 */
+	Host    = "127.0.0.1" /* 本地IP地址 */
+	Port    = 2020        /* 本地端口 */
+	MsgLen  = 4096        /* 消息长度上界 */
+	ChanCap = 7           /* 消息读入管道容量 */
 )
+
+// BlockInfo 最新节点信息
+type BlockInfo struct {
+	Hash string `json:"Hash"` /* 区块哈希 */
+}
 
 // NodeInfo 节点信息类型
 type NodeInfo struct {
-	Addr             net.Addr   /* 地址 */
-	LatestBlockID    int64      /* 最新区块编号 */
-	LatestBlockTime  int64      /* 最新区块时间 */
-	BroadcastTime    [100]int64 /* 最近100次区块广播时间 */
-	Filled           bool       /* 区块广播是否满100次 */
-	Rank             int8       /* 最旧或第100新区块广播时间，等待被更新成最新区块广播时间 */
-	AvgBroadcastTime float64    /* 平均区块广播时间 */
+	Addr             net.Addr /* 地址 */
+	LatestBlockHash  string   /* 最新区块哈希 */
+	LatestBlockTime  int      /* 最新区块时间 */
+	BroadcastTime    [100]int /* 最近100次区块广播时间 */
+	Filled           bool     /* 区块广播是否满100次 */
+	Rank             int8     /* 最旧或第100新区块广播时间，等待被更新成最新区块广播时间 */
+	AvgBroadcastTime float64  /* 平均区块广播时间 */
 	// 最新区块广播时间：BroadcastTime[Rank-1]
 }
 
-var nodeMap map[string]NodeInfo   /* 键：节点名，值：节点信息 */
-var blockPushTime map[int64]int64 /* 键：区块编号，值：最早收到推送时间 */
+var nodeMap map[string]NodeInfo  /* 键：节点名，值：节点信息 */
+var blockPushTime map[string]int /* 键：区块哈希，值：最早收到推送时间 */
 
 func main() {
 	address := Host + ":" + strconv.Itoa(Port)
@@ -39,7 +47,7 @@ func main() {
 		return
 	}
 	nodeMap = make(map[string]NodeInfo)
-	blockPushTime = make(map[int64]int64)
+	blockPushTime = make(map[string]int)
 	defer ln.Close()
 	for {
 		conn, err := ln.Accept()
@@ -52,95 +60,113 @@ func main() {
 }
 
 func handleConnection(conn net.Conn) {
+	// TODO 节点-区块信息归类
 	defer conn.Close()
-	readChan := make(chan []byte, MsgLen<<3) /* 读消息 */
-	lenChan := make(chan int)                /* 消息长度 */
-	endChan := make(chan bool)               /* 读消息结束 */
-	go readMsg(conn, readChan, lenChan, endChan)
+	nodeName := ""                         /* 节点名 */
+	version := ""                          /* 节点版本 */
+	nodeDelay := ""                        /* 节点延迟 */
+	connNum := ""                          /* 节点连接数 */
+	txPoolNum := ""                        /* 待处理交易 */
+	nodeAddr := conn.RemoteAddr()          /* 节点地址 */
+	readChan := make(chan []byte, ChanCap) /* 读消息 */
+	countChan := make(chan int, ChanCap)   /* 消息数目 */
+	go readMsg(conn, readChan, countChan)
+	receivedCount := 0
 	for {
 		select {
 		case msg := <-readChan:
-			// currentTime := int64(time.Now().Nanosecond())
-			// fmt.Println(msg)
+			receivedCount++
 			var msgObj soccerdash.Message
-			len := <-lenChan
-			err := json.Unmarshal(msg[:len], &msgObj) /* 反序列化 */
+			err := json.Unmarshal(msg, &msgObj) /* 反序列化 */
 			if err != nil {
 				fmt.Println(err)
 				return
 			}
 			switch msgObj.Key {
 			case "NodeName":
-				// TODO 节点名
-				fmt.Println("NodeName:", msgObj.Value)
+				if nodeName == "" {
+					nodeName = msgObj.Value.(string)
+				}
 				break
 			case "Version":
-				// TODO 运行版本
-				fmt.Println("Version:", msgObj.Value)
+				if version == "" {
+					version = msgObj.Value.(string)
+				}
 				break
 			case "NodeDelay":
-				// TODO 节点延迟
-				fmt.Println("NodeDelay:", msgObj.Value)
+				if nodeDelay == "" {
+					nodeDelay = msgObj.Value.(string)
+				}
 				break
 			case "ConnNum":
-				// TODO 连接数
-				fmt.Println("ConnNum:")
+				if connNum == "" {
+					connNum = msgObj.Value.(string)
+				}
 				break
 			case "LatestSequencer":
-				// TODO 最新区块
-				// nodeAddr := conn.RemoteAddr()
-				// if _, blockFound := blockPushTime[obj.BlockID]; !blockFound /* 出块尚未被记录 */ {
-				// 	blockPushTime[obj.BlockID] = currentTime
-				// }
-				// if ni, nodeFound := nodeMap[obj.NodeName]; nodeFound { /* 节点已经被记录 */
-				// 	ni.update(obj.BlockID, currentTime, blockPushTime[obj.BlockID])
-				// } else /* 节点尚未被记录 */ {
-				// 	nodeMap[obj.NodeName] = *newNodeInfo(nodeAddr, obj.BlockID, currentTime, blockPushTime[obj.BlockID])
-				// }
-				fmt.Println("LatestSequencer:")
+				currentTime := time.Now().Nanosecond()
+				var blockInfoObj BlockInfo
+				err := json.Unmarshal(msgObj.Value.([]byte), &blockInfoObj)
+				if err != nil {
+					fmt.Println(err)
+					break
+				}
+				if _, blockFound := blockPushTime[blockInfoObj.Hash]; !blockFound /* 出块尚未被记录 */ {
+					blockPushTime[blockInfoObj.Hash] = currentTime
+				}
+				if ni, nodeFound := nodeMap[nodeName]; nodeFound { /* 节点已经被记录 */
+					ni.update(blockInfoObj.Hash, currentTime, blockPushTime[blockInfoObj.Hash])
+				} else /* 节点尚未被记录 */ {
+					nodeMap[nodeName] = *newNodeInfo(nodeAddr, blockInfoObj.Hash, currentTime, blockPushTime[blockInfoObj.Hash])
+				}
 				break
 			case "IsProducer":
 				// TODO 出块委员会
-				fmt.Println("IsProducer:")
+				// 新建出块委员会节点向量；
+				// 如果true且这个节点不属于出块委员会向量，那么压入；如果false且属于，那么擦除。
 				break
 			case "TxPoolNum":
-				// TODO 待处理交易
-				fmt.Println("TxPoolNum:")
+				txPoolNum = msgObj.Value.(string)
+				if txPoolNum[0] == '-' {
+					return
+				}
 				break
 			default:
 				fmt.Println("Msg format err!")
 			}
-		case end := <-endChan:
-			if end {
+		case sentCount := <-countChan:
+			if sentCount == receivedCount {
 				break
+			} else {
+				continue
 			}
-		default:
-			break
 		}
 	}
 }
 
-func readMsg(conn net.Conn, readChan chan<- []byte, lenChan chan<- int, endChan chan<- bool) {
+func readMsg(conn net.Conn, readChan chan<- []byte, countChan chan<- int) {
+	count := 0
 	for {
+		r := bufio.NewReader(conn)
 		msg := make([]byte, MsgLen)
-		len, err := conn.Read(msg)
+		msg, _, err := r.ReadLine()
 		if err != nil {
 			fmt.Println(err)
 			break
 		}
 		readChan <- msg
-		lenChan <- len
+		count++
 	}
-	endChan <- true
+	countChan <- count
 }
 
-func newNodeInfo(addr net.Addr, bid int64, ct int64, bpt int64) *NodeInfo {
+func newNodeInfo(addr net.Addr, bh string, ct int, bpt int) *NodeInfo {
 	bt := ct - bpt
-	return &NodeInfo{addr, bid, bt, [100]int64{0: bt}, false, 1, float64(bt)}
+	return &NodeInfo{addr, bh, bt, [100]int{0: bt}, false, 1, float64(bt)}
 }
 
-func (ni *NodeInfo) update(bid int64, ct int64, bpt int64) {
-	ni.LatestBlockID = bid
+func (ni *NodeInfo) update(bh string, ct int, bpt int) {
+	ni.LatestBlockHash = bh
 	ni.LatestBlockTime = ct
 	bt := ct - bpt
 	if ni.Filled {
