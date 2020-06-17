@@ -15,7 +15,7 @@ const (
 	Host    = "127.0.0.1" /* 本地IP地址 */
 	Port    = 2020        /* 本地端口 */
 	MsgLen  = 4096        /* 消息长度上界 */
-	ChanCap = 7           /* 消息读入管道容量 */
+	ChanCap = 30          /* 消息读入管道容量 */
 )
 
 func main() {
@@ -39,7 +39,7 @@ func main() {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 	readChan := make(chan []byte, ChanCap) /* 读消息 */
-	countChan := make(chan int, ChanCap)   /* 消息数目 */
+	countChan := make(chan int)            /* 消息数目 */
 	go readMsg(conn, readChan, countChan)
 	receivedCount := 0
 	for {
@@ -67,8 +67,7 @@ func readMsg(conn net.Conn, readChan chan<- []byte, countChan chan<- int) {
 	count := 0
 	for {
 		r := bufio.NewReader(conn)
-		msg := make([]byte, MsgLen)
-		msg, _, err := r.ReadLine()
+		msg, err := r.ReadBytes('\n')
 		if err != nil {
 			fmt.Println(err)
 			break
