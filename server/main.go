@@ -21,10 +21,10 @@ const (
 )
 
 // BlockInfo 最新节点信息
-// 键"LatestSequencer"对应的值
+// 键"LatestSequencer"对应的值，给出了被需要的字段
 type BlockInfo struct {
-	ID   string `json:"id"`   /* 区块编号 */
-	Hash string `json:"hash"` /* 区块哈希 */
+	Hash   string `json:"Hash"`   /* 区块哈希 */
+	Height int64  `json:"Height"` /* 区块高度 */
 }
 
 // NodeInfo 节点信息类型
@@ -33,7 +33,7 @@ type NodeInfo struct {
 	NodeName         string   /* 节点名 */
 	Version          string   /* 运行版本 */
 	ConnNum          string   /* 连接数 */
-	LatestBlockID    string   /* 最新区块编号 */
+	LatestBlock      string   /* 最新区块编号（高度） */
 	LatestBlockHash  string   /* 最新区块哈希 */
 	LatestBlockTime  int      /* 最新区块时间 */
 	BroadcastTime    [100]int /* 最近100次区块广播时间 */
@@ -53,7 +53,7 @@ type Node struct {
 	Version  string `json:"version"`   /* 运行版本 */
 	// NodeDelay           int64  `json:"node_delay"`
 	ConnNum             int64  `json:"conn_num"`              /* 连接数 */
-	LatestBlock         string `json:"latest_block"`          /* 最新区块编号 */
+	LatestBlock         string `json:"latest_block"`          /* 最新区块编号（高度） */
 	LatestBlockHash     string `json:"latest_block_hash"`     /* 最新区块哈希 */
 	LatestBlockTime     int64  `json:"latest_block_time"`     /* 最新区块时间 */
 	BroadcastTime       int64  `json:"broadcast_time"`        /* 最新区块广播时间 */
@@ -107,6 +107,7 @@ func handleConnection(conn net.Conn) {
 				fmt.Println(err)
 				break
 			}
+			// fmt.Println(msgObj.Key)
 			switch msgObj.Key {
 			case "NodeName":
 				if ni.NodeName == "" {
@@ -126,7 +127,7 @@ func handleConnection(conn net.Conn) {
 			case "LatestSequencer":
 				currentTime := time.Now().Nanosecond()
 				var blockInfoObj BlockInfo
-				err := json.Unmarshal(msgObj.Value.([]byte), &blockInfoObj)
+				err := json.Unmarshal([]byte(msgObj.Value.(string)), &blockInfoObj)
 				if err != nil {
 					fmt.Println(err)
 					break
@@ -147,7 +148,7 @@ func handleConnection(conn net.Conn) {
 						}
 					}
 				}
-				ni.LatestBlockID = blockInfoObj.ID
+				ni.LatestBlock = strconv.FormatInt(blockInfoObj.Height, 10)
 				ni.LatestBlockHash = blockInfoObj.Hash
 				ni.LatestBlockTime = currentTime
 				ni.BroadcastTime[ni.Rank] = bt
@@ -166,8 +167,6 @@ func handleConnection(conn net.Conn) {
 			default:
 				fmt.Println("Message format err!")
 			}
-			ni.print()
-			fmt.Println("")
 		case sentCount := <-countChan:
 			if sentCount == receivedCount {
 				break
@@ -201,19 +200,11 @@ func newNodeInfo() *NodeInfo {
 }
 
 func (ni *NodeInfo) allowedToSend() bool {
-	return ni.NodeName != "" && ni.Version != "" && ni.ConnNum != "" && ni.LatestBlockID != "" && ni.LatestBlockTime > 0
-}
-
-func (ni *NodeInfo) print() {
-	fmt.Println("NodeName:", ni.NodeName)
-	fmt.Println("Version:", ni.Version)
-	fmt.Println("ConnNum:", ni.ConnNum)
-	fmt.Println("IsProducer:", ni.IsProducer)
-	fmt.Println("TxPoolNum:", ni.TxPoolNum)
+	return ni.NodeName != "" && ni.Version != "" && ni.ConnNum != "" && ni.LatestBlock != "" && ni.LatestBlockTime > 0
 }
 
 func convert2KafkaMsg(addr net.Addr, ni *NodeInfo) []byte {
-	n := Node{ni.NodeName, addr.String(), ni.Version, 0, ni.LatestBlockID, ni.LatestBlockHash, 0, 0, 0, ni.IsProducer, 0}
+	n := Node{ni.NodeName, addr.String(), ni.Version, 0, ni.LatestBlock, ni.LatestBlockHash, 0, 0, 0, ni.IsProducer, 0}
 	connNum, err := strconv.ParseInt(ni.ConnNum, 10, 64)
 	if err != nil {
 		return nil
@@ -224,6 +215,7 @@ func convert2KafkaMsg(addr net.Addr, ni *NodeInfo) []byte {
 	n.AvgBroadcastTime = int64(ni.AvgBroadcastTime)
 	pt, err := strconv.ParseInt(ni.TxPoolNum, 10, 64)
 	if err != nil {
+		fmt.Println(err)
 		return nil
 	}
 	n.PendingTransactions = pt
@@ -232,6 +224,8 @@ func convert2KafkaMsg(addr net.Addr, ni *NodeInfo) []byte {
 		fmt.Println(err)
 		return nil
 	}
+	// fmt.Println(string(b))
+	// fmt.Println("")
 	return b
 }
 
