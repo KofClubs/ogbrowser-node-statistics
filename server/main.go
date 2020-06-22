@@ -21,10 +21,11 @@ const (
 )
 
 // BlockInfo 最新节点信息
-// 键"LatestSequencer"对应的值，给出了被需要的字段
+// 键"LatestSequencer"对应的值，给出了被需要的字段，多余的被遗弃
 type BlockInfo struct {
-	Hash   string `json:"Hash"`   /* 区块哈希 */
-	Height int64  `json:"Height"` /* 区块高度 */
+	Hash      string `json:"Hash"`      /* 区块哈希 */
+	Height    int64  `json:"Height"`    /* 区块高度 */
+	Timestamp int    `json:"Timestamp"` /* 区块时间戳 */
 }
 
 // NodeInfo 节点信息类型
@@ -86,7 +87,6 @@ func main() {
 }
 
 func handleConnection(conn net.Conn) {
-	// TODO 节点-区块信息归类
 	defer conn.Close()
 	nodeAddr := conn.RemoteAddr() /* 节点地址 */
 	if _, isOldNode := nodeMap[nodeAddr]; !isOldNode {
@@ -125,7 +125,7 @@ func handleConnection(conn net.Conn) {
 				}
 				break
 			case "LatestSequencer":
-				currentTime := time.Now().Nanosecond()
+				currentTime := time.Now().Nanosecond() / 1e6 /* 毫秒 */
 				var blockInfoObj BlockInfo
 				err := json.Unmarshal([]byte(msgObj.Value.(string)), &blockInfoObj)
 				if err != nil {
@@ -150,7 +150,7 @@ func handleConnection(conn net.Conn) {
 				}
 				ni.LatestBlock = strconv.FormatInt(blockInfoObj.Height, 10)
 				ni.LatestBlockHash = blockInfoObj.Hash
-				ni.LatestBlockTime = currentTime
+				ni.LatestBlockTime = blockInfoObj.Timestamp
 				ni.BroadcastTime[ni.Rank] = bt
 				if ni.Rank == 99 {
 					ni.Rank = 0
@@ -182,8 +182,8 @@ func handleConnection(conn net.Conn) {
 
 func readMsg(conn net.Conn, readChan chan<- []byte, countChan chan<- int) {
 	count := 0
+	r := bufio.NewReader(conn)
 	for {
-		r := bufio.NewReader(conn)
 		msg, err := r.ReadBytes('\n')
 		if err != nil {
 			fmt.Println(err)
@@ -205,13 +205,22 @@ func (ni *NodeInfo) allowedToSend() bool {
 
 func convert2KafkaMsg(addr net.Addr, ni *NodeInfo) []byte {
 	n := Node{ni.NodeName, addr.String(), ni.Version, 0, ni.LatestBlock, ni.LatestBlockHash, 0, 0, 0, ni.IsProducer, 0}
+	for i := 0; i < len(n.NodeIP); i++ {
+		if n.NodeIP[i] == ':' {
+			n.NodeIP = n.NodeIP[0:i] /* 不保留端口号 */
+		}
+	}
 	connNum, err := strconv.ParseInt(ni.ConnNum, 10, 64)
 	if err != nil {
 		return nil
 	}
 	n.ConnNum = connNum
 	n.LatestBlockTime = int64(ni.LatestBlockTime)
-	n.BroadcastTime = int64(ni.BroadcastTime[ni.Rank-1])
+	if ni.Rank == 0 {
+		n.BroadcastTime = int64(ni.BroadcastTime[99])
+	} else {
+		n.BroadcastTime = int64(ni.BroadcastTime[ni.Rank-1])
+	}
 	n.AvgBroadcastTime = int64(ni.AvgBroadcastTime)
 	pt, err := strconv.ParseInt(ni.TxPoolNum, 10, 64)
 	if err != nil {
@@ -224,8 +233,8 @@ func convert2KafkaMsg(addr net.Addr, ni *NodeInfo) []byte {
 		fmt.Println(err)
 		return nil
 	}
-	// fmt.Println(string(b))
-	// fmt.Println("")
+	fmt.Println(string(b))
+	fmt.Println("")
 	return b
 }
 
