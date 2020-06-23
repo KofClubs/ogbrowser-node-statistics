@@ -8,17 +8,22 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/Shopify/sarama"
 	"github.com/latifrons/soccerdash"
 )
 
-// TCP通信全局变量
-// TODO 移动到配置文件
+// 服务器全局变量
 const (
-	Host    = "0.0.0.0" /* 测试IP地址 */
-	Port    = 2020      /* 本地端口 */
-	ChanCap = 30        /* 消息读入管道容量 */
+	ChanCap = 30 /* 消息读入管道容量 */
 )
+
+// Server 服务器信息
+// 从config.toml读
+type Server struct {
+	Host string
+	Port int
+}
 
 // BlockInfo 最新节点信息
 // 键"LatestSequencer"对应的值，给出了被需要的字段，多余的被遗弃
@@ -67,7 +72,13 @@ var nodeMap map[net.Addr]NodeInfo /* 键：节点地址，值：节点信息 */
 var blockPushTime map[string]int  /* 键：区块哈希，值：最早收到推送时间 */
 
 func main() {
-	address := Host + ":" + strconv.Itoa(Port)
+	var server Server
+	_, err := toml.DecodeFile("config.toml", &server)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	address := server.Host + ":" + strconv.Itoa(server.Port)
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		fmt.Println(err)
