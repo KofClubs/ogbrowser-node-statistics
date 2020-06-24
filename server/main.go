@@ -10,6 +10,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/Shopify/sarama"
+	"github.com/annchain/OG/types/tx_types"
 	"github.com/latifrons/soccerdash"
 )
 
@@ -23,14 +24,6 @@ const (
 type Server struct {
 	Host string
 	Port int
-}
-
-// BlockInfo 最新节点信息
-// 键"LatestSequencer"对应的值，给出了被需要的字段，多余的被遗弃
-type BlockInfo struct {
-	Hash      string `json:"Hash"`      /* 区块哈希 */
-	Height    int64  `json:"Height"`    /* 区块高度 */
-	Timestamp int    `json:"Timestamp"` /* 区块时间戳 */
 }
 
 // NodeInfo 节点信息类型
@@ -73,7 +66,7 @@ var blockPushTime map[string]int  /* 键：区块哈希，值：最早收到推�
 
 func main() {
 	var server Server
-	_, err := toml.DecodeFile("config.toml", &server)
+	_, err := toml.DecodeFile("../config.toml", &server)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -119,34 +112,38 @@ func handleConnection(conn net.Conn) {
 				break
 			}
 			// fmt.Println(msgObj.Key)
-			switch msgObj.Key {
+			switch msgObj.Key /* 消息的键 */ {
+			// 节点名
 			case "NodeName":
 				if ni.NodeName == "" {
 					ni.NodeName = msgObj.Value.(string)
 				}
 				break
+			// 版本
 			case "Version":
 				if ni.Version == "" {
 					ni.Version = msgObj.Value.(string)
 				}
 				break
+			// 连接数
 			case "ConnNum":
 				if ni.ConnNum == "" {
 					ni.ConnNum = msgObj.Value.(string)
 				}
 				break
+			// 最新区块
 			case "LatestSequencer":
 				currentTime := time.Now().Nanosecond() / 1e6 /* 毫秒 */
-				var blockInfoObj BlockInfo
+				var blockInfoObj tx_types.Sequencer
 				err := json.Unmarshal([]byte(msgObj.Value.(string)), &blockInfoObj)
 				if err != nil {
 					fmt.Println(err)
 					break
 				}
-				if _, isOldBlock := blockPushTime[blockInfoObj.Hash]; !isOldBlock /* 出块尚未被记录 */ {
-					blockPushTime[blockInfoObj.Hash] = currentTime
+				if _, isOldBlock := blockPushTime[blockInfoObj.Hash.String()]; !isOldBlock /* 出块尚未被记录 */ {
+					blockPushTime[blockInfoObj.Hash.String()] = currentTime
 				}
-				bt := currentTime - blockPushTime[blockInfoObj.Hash] /* 广播时间=当前时间-区块最早被记录时间 */
+				bt := currentTime - blockPushTime[blockInfoObj.Hash.String()] /* 广播时间=当前时间-区块最早被记录时间 */
 				if ni.LatestBlockHash == "" /* 节点的区块信息尚无记录 */ {
 					ni.AvgBroadcastTime = bt
 				} else /* 节点的区块信息已经有记录 */ {
@@ -159,9 +156,10 @@ func handleConnection(conn net.Conn) {
 						}
 					}
 				}
-				ni.LatestBlock = strconv.FormatInt(blockInfoObj.Height, 10)
-				ni.LatestBlockHash = blockInfoObj.Hash
-				ni.LatestBlockTime = blockInfoObj.Timestamp
+				ni.LatestBlock = strconv.FormatInt(int64(blockInfoObj.Height), 10)
+				ni.LatestBlockHash = blockInfoObj.Hash.String()
+				ni.LatestBlockTime = currentTime
+				// ni.LatestBlockTime = blockInfoObj.Timestamp /* 区块时间，当前使用接收时间，应该使用区块时间戳 */
 				ni.BroadcastTime[ni.Rank] = bt
 				if ni.Rank == 99 {
 					ni.Rank = 0
@@ -169,9 +167,11 @@ func handleConnection(conn net.Conn) {
 					ni.Rank++
 				}
 				break
+			// 是否属于出块委员会
 			case "IsProducer":
 				ni.IsProducer = msgObj.Value.(bool)
 				break
+			// 待处理交易
 			case "TxPoolNum":
 				ni.TxPoolNum = msgObj.Value.(string)
 				break

@@ -39,3 +39,7 @@
 2020-06-24-1
 1.  把监听地址写进config.toml。
 2.  新增了Dockerfile。
+
+2020-06-24-2
+1.  移除了Dockerfile。
+2.  根据实际最新区块信息字段更新了soccerdash接收端。
