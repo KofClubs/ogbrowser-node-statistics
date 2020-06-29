@@ -116,6 +116,7 @@ func (s *Server) producing() {
 	for {
 		select {
 		case <-s.closeCh:
+			logrus.Info("producing closed")
 			return
 		case msg := <-s.produceCh:
 			s.produceKafkaMsg(msg)
@@ -212,7 +213,7 @@ func (om *OrderedMap) Add(k string, v interface{}) interface{} {
 	if om.exists(k) {
 		return nil
 	}
-	if om.Len() < om.cap {
+	if om.len() < om.cap {
 		om.keys = append(om.keys)
 		om.data[k] = v
 		return nil

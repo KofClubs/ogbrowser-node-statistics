@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"github.com/annchain/OG/types/tx_types"
 	"github.com/latifrons/soccerdash"
 	"github.com/sirupsen/logrus"
@@ -67,16 +68,16 @@ func (node *Node) readMsg(msg []byte) {
 	// fmt.Println(msgObj.Key)
 	switch msgObj.Key /* 消息的键 */ {
 	// 节点名
-	case "nodeName":
+	case "NodeName":
 		node.info.nodeName = msgObj.Value.(string)
 		break
 	// 版本
-	case "version":
+	case "Version":
 		node.info.version = msgObj.Value.(string)
 		break
 	// 连接数
-	case "connNum":
-		node.info.connNum = msgObj.Value.(int)
+	case "ConnNum":
+		node.info.connNum = int(msgObj.Value.(float64))
 		break
 	// 最新区块
 	case "LatestSequencer":
@@ -89,9 +90,10 @@ func (node *Node) readMsg(msg []byte) {
 		}
 
 		hash := blockInfoObj.Hash.Hex()
+		node.confirmTimes.Add(hash, currentTime)
+
 		broadcastTime := node.server.InsertOrIgnoreConfirmTime(hash, currentTime)
 		node.broadcastInfo.Add(hash, broadcastTime)
-		node.confirmTimes.Add(hash, currentTime)
 
 		node.info.latestBroadcastTime = broadcastTime
 		node.info.avgBroadcastTime = node.broadcastInfo.AvgTime()
@@ -101,18 +103,18 @@ func (node *Node) readMsg(msg []byte) {
 		node.info.latestBlockTime = currentTime
 		break
 	// 是否属于出块委员会
-	case "isProducer":
+	case "IsProducer":
 		node.info.isProducer = msgObj.Value.(bool)
 		break
 	// 待处理交易
-	case "txPoolNum":
-		node.info.txPoolNum = msgObj.Value.(int)
+	case "TxPoolNum":
+		node.info.txPoolNum = int(msgObj.Value.(float64))
 		break
 	default:
 		logrus.Errorf("Unknown message key: %s", msgObj.Key)
 	}
 
-	if !node.info.allowedToSend() {
+	if node.info.allowedToSend() {
 		node.server.sendKafkaMsg(node.info.toKafkaMsg())
 	}
 
@@ -139,6 +141,9 @@ func (b *BroadcastInfo) Add(hash string, broadcastTime time.Duration) {
 }
 
 func (b *BroadcastInfo) AvgTime() time.Duration {
+	if b.times.Len() == 0 {
+		return 0
+	}
 	return b.total / time.Duration(b.times.Len())
 }
 
@@ -186,9 +191,9 @@ func (ni *NodeInfo) toKafkaMsg() []byte {
 	nodeKafka.NodeIP = ni.address
 	nodeKafka.Version = ni.version
 	nodeKafka.ConnNum = ni.connNum
-	nodeKafka.LatestBlock = string(ni.latestBlockHeight)
+	nodeKafka.LatestBlock = fmt.Sprintf("%d", ni.latestBlockHeight)
 	nodeKafka.LatestBlockHash = ni.latestBlockHash
-	nodeKafka.LatestBlockTime = ni.latestBlockTime.Nanosecond() / 1e6
+	nodeKafka.LatestBlockTime = int(ni.latestBlockTime.UnixNano() / 1e6)
 	nodeKafka.BroadcastTime = int(ni.latestBroadcastTime.Nanoseconds() / 1e6)
 	nodeKafka.AvgBroadcastTime = int(ni.avgBroadcastTime.Nanoseconds() / 1e6)
 	nodeKafka.IsProducer = ni.isProducer
