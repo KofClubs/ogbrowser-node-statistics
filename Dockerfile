@@ -19,3 +19,9 @@ FROM alpine:latest
 RUN apk add --no-cache curl iotop busybox-extras
 
 COPY --from=builder /opt/go/ /opt/go/
+
+EXPOSE 8080
+
+WORKDIR /opt/go
+
+CMD ["./statistics"]
