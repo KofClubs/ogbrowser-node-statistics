@@ -1,2 +1,4 @@
 host = "0.0.0.0"
-port = 2020
+port = 10000
+logdir = "log"
+loglevel = "trace"
