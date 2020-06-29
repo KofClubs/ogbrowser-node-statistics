@@ -1,7 +1,7 @@
 # Build from alpine based golang environment
 FROM golang:1.12-alpine as builder
 
-RUN apk add --no-cache make gcc musl-dev linux-headers git
+#RUN apk add musl-dev linux-headers git
 
 ENV GOPROXY https://goproxy.io
 ENV GO111MODULE on
@@ -12,7 +12,7 @@ COPY go.sum .
 RUN go mod download
 
 COPY . .
-RUN go build -o statistics ./server
+RUN go build -o ./build/statistics ./server
 
 FROM alpine:latest
 
@@ -22,6 +22,6 @@ COPY --from=builder /opt/go/ /opt/go/
 
 EXPOSE 8080
 
-WORKDIR /opt/go
+WORKDIR /opt/go/build
 
 CMD ["./statistics"]
