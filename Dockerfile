@@ -1,7 +1,7 @@
 # Build from alpine based golang environment
 FROM golang:1.12-alpine as builder
 
-#RUN apk add musl-dev linux-headers git
+RUN apk add musl-dev linux-headers git
 
 ENV GOPROXY https://goproxy.io
 ENV GO111MODULE on
