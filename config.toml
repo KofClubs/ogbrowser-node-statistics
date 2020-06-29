@@ -1,4 +1,6 @@
 host = "0.0.0.0"
-port = 10000
+port = 8080
 logdir = "log"
-loglevel = "trace"
+logLevel = "trace"
+kafkaAddr = "47.100.122.212:30040"
+kafkaTopic = "og-visual-test"

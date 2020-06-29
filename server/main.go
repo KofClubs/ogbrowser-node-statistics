@@ -28,8 +28,8 @@ func main() {
 	}
 
 	initLogger(conf.LogDir, conf.LogLevel, true)
-	server := NewServer(conf)
 
+	server := NewServer(conf)
 	err = server.Start()
 	if err != nil {
 		logrus.Error(err)
@@ -39,6 +39,6 @@ func main() {
 
 	// do not let the program ends
 	for {
-		time.Sleep(time.Second)
+		time.Sleep(time.Hour)
 	}
 }
