@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/annchain/OG/types/tx_types"
 	"github.com/latifrons/soccerdash"
 	"github.com/sirupsen/logrus"
 	"net"
@@ -69,27 +68,40 @@ func (node *Node) readMsg(msg []byte) {
 	switch msgObj.Key /* 消息的键 */ {
 	// 节点名
 	case "NodeName":
-		node.info.nodeName = msgObj.Value.(string)
+		nodeName := msgObj.Value.(string)
+		if node.info.nodeName == nodeName {
+			return
+		}
+		node.info.nodeName = nodeName
 		break
 	// 版本
 	case "Version":
-		node.info.version = msgObj.Value.(string)
+		version := msgObj.Value.(string)
+		if node.info.version == version {
+			return
+		}
+		node.info.version = version
 		break
 	// 连接数
 	case "ConnNum":
-		node.info.connNum = int(msgObj.Value.(float64))
+		connNum := int(msgObj.Value.(float64))
+		if node.info.connNum == connNum {
+			return
+		}
+		node.info.connNum = connNum
 		break
 	// 最新区块
 	case "LatestSequencer":
-		currentTime := time.Now()
-		var blockInfoObj tx_types.Sequencer
-		err := json.Unmarshal([]byte(msgObj.Value.(string)), &blockInfoObj)
-		if err != nil {
-			logrus.Error(err)
-			break
+		seqMap, ok := msgObj.Value.(map[string]interface{})
+		if !ok {
+			logrus.Errorf("cannot convert seq to map")
+			return
 		}
 
-		hash := blockInfoObj.Hash.Hex()
+		hash := seqMap["Hash"].(string)
+		height := uint64(seqMap["Height"].(float64))
+
+		currentTime := time.Now()
 		node.confirmTimes.Add(hash, currentTime)
 
 		broadcastTime := node.server.InsertOrIgnoreConfirmTime(hash, currentTime)
@@ -97,18 +109,26 @@ func (node *Node) readMsg(msg []byte) {
 
 		node.info.latestBroadcastTime = broadcastTime
 		node.info.avgBroadcastTime = node.broadcastInfo.AvgTime()
-		node.info.latestBlockHeight = blockInfoObj.Height
-		node.info.latestBlockHash = blockInfoObj.Hash.String()
+		node.info.latestBlockHeight = height
+		node.info.latestBlockHash = hash
 		// 区块时间，当前使用接收时间，应该使用区块时间戳
 		node.info.latestBlockTime = currentTime
 		break
 	// 是否属于出块委员会
 	case "IsProducer":
-		node.info.isProducer = msgObj.Value.(bool)
+		isProducer := msgObj.Value.(bool)
+		if node.info.isProducer == isProducer {
+			return
+		}
+		node.info.isProducer = isProducer
 		break
 	// 待处理交易
 	case "TxPoolNum":
-		node.info.txPoolNum = int(msgObj.Value.(float64))
+		txPoolNum := int(msgObj.Value.(float64))
+		if node.info.txPoolNum == txPoolNum {
+			return
+		}
+		node.info.txPoolNum = txPoolNum
 		break
 	default:
 		logrus.Errorf("Unknown message key: %s", msgObj.Key)
