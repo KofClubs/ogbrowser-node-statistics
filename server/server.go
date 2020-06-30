@@ -214,7 +214,7 @@ func (om *OrderedMap) Add(k string, v interface{}) interface{} {
 		return nil
 	}
 	if om.len() < om.cap {
-		om.keys = append(om.keys)
+		om.keys = append(om.keys, k)
 		om.data[k] = v
 		return nil
 	}
