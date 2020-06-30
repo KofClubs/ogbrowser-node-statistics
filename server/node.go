@@ -210,7 +210,7 @@ func newNodeInfo(address string) *NodeInfo {
 }
 
 func (ni *NodeInfo) allowedToSend() bool {
-	return ni.nodeName != "" && ni.version != "" && ni.connNum != 0 && ni.latestBlockHeight != 0
+	return ni.nodeName != "" && ni.latestBlockHeight != 0
 }
 
 func (ni *NodeInfo) toKafkaMsg() []byte {
