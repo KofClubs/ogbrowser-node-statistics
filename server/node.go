@@ -10,6 +10,15 @@ import (
 	"time"
 )
 
+const (
+	SDKeyNodeName        = "NodeName"
+	SDKeyVersion         = "Version"
+	SDKeyConnNum         = "ConnNum"
+	SDKeyLatestSequencer = "LatestSequencer"
+	SDKeyIsProducer      = "IsProducer"
+	SDKeyTxPoolNum       = "TxPoolNum"
+)
+
 type Node struct {
 	address string
 	conn    net.Conn
@@ -67,7 +76,7 @@ func (node *Node) readMsg(msg []byte) {
 	// fmt.Println(msgObj.Key)
 	switch msgObj.Key /* 消息的键 */ {
 	// 节点名
-	case "NodeName":
+	case SDKeyNodeName:
 		nodeName := msgObj.Value.(string)
 		if node.info.nodeName == nodeName {
 			return
@@ -75,7 +84,7 @@ func (node *Node) readMsg(msg []byte) {
 		node.info.nodeName = nodeName
 		break
 	// 版本
-	case "Version":
+	case SDKeyVersion:
 		version := msgObj.Value.(string)
 		if node.info.version == version {
 			return
@@ -83,7 +92,7 @@ func (node *Node) readMsg(msg []byte) {
 		node.info.version = version
 		break
 	// 连接数
-	case "ConnNum":
+	case SDKeyConnNum:
 		connNum := int(msgObj.Value.(float64))
 		if node.info.connNum == connNum {
 			return
@@ -91,7 +100,7 @@ func (node *Node) readMsg(msg []byte) {
 		node.info.connNum = connNum
 		break
 	// 最新区块
-	case "LatestSequencer":
+	case SDKeyLatestSequencer:
 		seqMap, ok := msgObj.Value.(map[string]interface{})
 		if !ok {
 			logrus.Errorf("cannot convert seq to map")
@@ -115,7 +124,7 @@ func (node *Node) readMsg(msg []byte) {
 		node.info.latestBlockTime = currentTime
 		break
 	// 是否属于出块委员会
-	case "IsProducer":
+	case SDKeyIsProducer:
 		isProducer := msgObj.Value.(bool)
 		if node.info.isProducer == isProducer {
 			return
@@ -123,7 +132,7 @@ func (node *Node) readMsg(msg []byte) {
 		node.info.isProducer = isProducer
 		break
 	// 待处理交易
-	case "TxPoolNum":
+	case SDKeyTxPoolNum:
 		txPoolNum := int(msgObj.Value.(float64))
 		if node.info.txPoolNum == txPoolNum {
 			return
