@@ -27,7 +27,7 @@ func main() {
 		Host:       "0.0.0.0",
 		Port:       8080,
 		LogDir:     "log",
-		LogLevel:   "info",
+		LogLevel:   "trace",
 		KafkaAddr:  viper.GetString("kafka.broker"),
 		KafkaTopic: viper.GetString("kafka.topic"),
 	}
