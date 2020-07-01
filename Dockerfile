@@ -12,7 +12,7 @@ COPY go.sum .
 RUN go mod download
 
 COPY . .
-RUN go build -o ./build/statistics .
+RUN go build -o ./statistics .
 
 FROM alpine:latest
 
@@ -22,6 +22,6 @@ COPY --from=builder /opt/go/ /opt/go/
 
 EXPOSE 8080
 
-WORKDIR /opt/go/build
+WORKDIR /opt/go/
 
 CMD ["./statistics"]
