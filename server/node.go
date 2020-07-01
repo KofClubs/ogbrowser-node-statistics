@@ -226,19 +226,22 @@ func (ni *NodeInfo) allowedToSend() bool {
 }
 
 func (ni *NodeInfo) toKafkaMsg() []byte {
-	nodeKafka := NodeKafka{}
-
-	nodeKafka.NodeName = ni.nodeName
-	nodeKafka.NodeIP = ni.address
-	nodeKafka.Version = ni.version
-	nodeKafka.ConnNum = ni.connNum
-	nodeKafka.LatestBlock = fmt.Sprintf("%d", ni.latestBlockHeight)
-	nodeKafka.LatestBlockHash = ni.latestBlockHash
-	nodeKafka.LatestBlockTime = int(ni.latestBlockTime.UnixNano() / 1e6)
-	nodeKafka.BroadcastTime = int(ni.latestBroadcastTime.Nanoseconds() / 1e6)
-	nodeKafka.AvgBroadcastTime = int(ni.avgBroadcastTime.Nanoseconds() / 1e6)
-	nodeKafka.IsProducer = ni.isProducer
-	nodeKafka.PendingTransactions = ni.txPoolNum
+	nodeKafka := NodeKafka{
+		NodeName:            ni.nodeName,
+		NodeIP:              ni.address,
+		NodeLatitude:        fmt.Sprintf("%f", ni.nodeLatitude),
+		NodeLongitude:       fmt.Sprintf("%f", ni.nodeLongitude),
+		NodeLocation:        ni.nodeLocation,
+		Version:             ni.version,
+		ConnNum:             ni.connNum,
+		LatestBlock:         fmt.Sprintf("%d", ni.latestBlockHeight),
+		LatestBlockHash:     ni.latestBlockHash,
+		LatestBlockTime:     int(ni.latestBlockTime.UnixNano() / 1e6),
+		BroadcastTime:       int(ni.latestBroadcastTime.Nanoseconds() / 1e6),
+		AvgBroadcastTime:    int(ni.avgBroadcastTime.Nanoseconds() / 1e6),
+		IsProducer:          ni.isProducer,
+		PendingTransactions: ni.txPoolNum,
+	}
 
 	b, err := json.Marshal(nodeKafka)
 	if err != nil {
