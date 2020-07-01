@@ -12,7 +12,7 @@ COPY go.sum .
 RUN go mod download
 
 COPY . .
-RUN go build -o ./build/statistics ./server
+RUN go build -o ./build/statistics .
 
 FROM alpine:latest
 
