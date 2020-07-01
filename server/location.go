@@ -40,6 +40,7 @@ func GetLocation(ip string) (l Location, err error) {
 		location = v
 	}
 	if location == "" {
+		logrus.WithField("ip", ipd).Info("unknown location for ip. use Default instead")
 		return GetLocation("47.100.122.212:1000")
 	}
 

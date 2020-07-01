@@ -13,6 +13,7 @@ var nodeMap map[net.Addr]server.NodeInfo /* 键：节点地址，值：节点信
 var blockConfirmTime map[string]int      /* 键：区块哈希，值：最早收到推送时间 */
 
 func main() {
+	fmt.Println(server.GetLocation("47.100.122.212:1000"))
 	viper.AutomaticEnv()
 	conf := server.Config{
 		Host:       "0.0.0.0",
