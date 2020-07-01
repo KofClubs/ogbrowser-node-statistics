@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/BurntSushi/toml"
+	"fmt"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"time"
 )
 
@@ -21,16 +22,21 @@ type Config struct {
 //var blockConfirmTime map[string]int  /* 键：区块哈希，值：最早收到推送时间 */
 
 func main() {
-	var conf Config
-	_, err := toml.DecodeFile("../config.toml", &conf)
-	if err != nil {
-		panic(err)
+	viper.AutomaticEnv()
+	conf := Config{
+		Host:       "0.0.0.0",
+		Port:       8080,
+		LogDir:     "log",
+		LogLevel:   "info",
+		KafkaAddr:  viper.GetString("kafka.broker"),
+		KafkaTopic: viper.GetString("kafka.topic"),
 	}
+	fmt.Printf("%+v\n", conf)
 
 	initLogger(conf.LogDir, conf.LogLevel, true)
 
 	server := NewServer(conf)
-	err = server.Start()
+	err := server.Start()
 	if err != nil {
 		logrus.Error(err)
 		return

@@ -1,0 +1,39 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: ogbrowser-statistics
+spec:
+  selector:
+    matchLabels:
+      app: ogbrowser-statistics
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ogbrowser-statistics
+    spec:
+      containers:
+        - name: ogbrowser-statistics
+          image: 172.28.152.101:5000/og-statistics:v0.0.5
+          env:
+            - name: KAFKA.BROKER
+              value: 47.100.122.212:30040
+            - name: KAFKA.TOPIC
+              value: og-visual-test
+          ports:
+            - name: http
+              containerPort: 8080
+
+  -------
+apiVersion: v1
+kind: Service
+metadata:
+  name: ogbrowser-statistics
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+  selector:
+    app: ogbrowser-statistics
