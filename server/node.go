@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"bufio"
@@ -181,6 +181,9 @@ func (b *BroadcastInfo) AvgTime() time.Duration {
 type NodeInfo struct {
 	address             string
 	nodeName            string    /* 节点名 */
+	nodeLatitude        float64   // 经度
+	nodeLongitude       float64   // 纬度
+	nodeLocation        string    // 地理位置
 	version             string    /* 运行版本 */
 	connNum             int       /* 连接数 */
 	latestBlockHeight   uint64    /* 最新区块编号（高度） */
@@ -193,6 +196,7 @@ type NodeInfo struct {
 }
 
 func newNodeInfo(address string) *NodeInfo {
+
 	ni := &NodeInfo{
 		address:             address,
 		nodeName:            "",
@@ -206,6 +210,14 @@ func newNodeInfo(address string) *NodeInfo {
 		isProducer:          false,
 		txPoolNum:           0,
 	}
+
+	location, err := GetLocation(address)
+	if err == nil {
+		ni.nodeLatitude = location.Latitude
+		ni.nodeLongitude = location.Longitude
+		ni.nodeLocation = location.Location
+	}
+
 	return ni
 }
 
@@ -239,9 +251,12 @@ func (ni *NodeInfo) toKafkaMsg() []byte {
 // NodeKafka 被压入kafka队列的节点信息
 // 暂时不实现节点延迟
 type NodeKafka struct {
-	NodeName string `json:"node_name"` /* 节点名 */
-	NodeIP   string `json:"node_ip"`   /* IP地址 */
-	Version  string `json:"version"`   /* 运行版本 */
+	NodeName      string `json:"node_name"`      /* 节点名 */
+	NodeIP        string `json:"node_ip"`        /* IP地址 */
+	NodeLatitude  string `json:"node_latitude"`  // 经度
+	NodeLongitude string `json:"node_longitude"` // 纬度
+	NodeLocation  string `json:"node_location"`  // 地理位置
+	Version       string `json:"version"`        /* 运行版本 */
 	// NodeDelay           int64  `json:"node_delay"`
 	ConnNum             int    `json:"conn_num"`              /* 连接数 */
 	LatestBlock         string `json:"latest_block"`          /* 最新区块编号（高度） */

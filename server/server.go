@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"fmt"
@@ -10,6 +10,17 @@ import (
 
 	"github.com/sirupsen/logrus"
 )
+
+// Config 服务器信息
+// 从config.toml读
+type Config struct {
+	Host       string
+	Port       int
+	LogDir     string
+	LogLevel   string
+	KafkaAddr  string
+	KafkaTopic string
+}
 
 type Server struct {
 	conf         Config

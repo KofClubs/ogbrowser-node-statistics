@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ func panicIfError(err error, message string) {
 	}
 }
 
-func initLogger(logdir, logLevel string, doStd bool) {
+func InitLogger(logdir, logLevel string, doStd bool) {
 
 	var writer io.Writer
 	var writers []io.Writer
