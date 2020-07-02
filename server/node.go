@@ -7,6 +7,7 @@ import (
 	"github.com/latifrons/soccerdash"
 	"github.com/sirupsen/logrus"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -26,6 +27,8 @@ type Node struct {
 	info          *NodeInfo
 	broadcastInfo *BroadcastInfo
 	confirmTimes  *OrderedMap /* 最近100次区块广播时间 */
+	sendFlag      bool
+	sendMu        sync.RWMutex
 
 	server *Server
 }
@@ -43,6 +46,7 @@ func NewNode(conn net.Conn, server *Server) *Node {
 	n.server = server
 
 	go n.readLoop()
+	go n.sendCheck()
 	return n
 }
 
@@ -144,9 +148,30 @@ func (node *Node) readMsg(msg []byte) {
 	}
 
 	if node.info.allowedToSend() {
-		node.server.sendKafkaMsg(node.info.toKafkaMsg())
+		//node.server.sendKafkaMsg(node.info.toKafkaMsg())
+		node.sendMu.Lock()
+		node.sendFlag = true
+		node.sendMu.Unlock()
 	}
+}
 
+func (node *Node) sendCheck() {
+	timer := time.NewTicker(time.Millisecond * 300)
+	for {
+		select {
+		case <-timer.C:
+			doit := false
+			node.sendMu.Lock()
+			if node.sendFlag {
+				node.sendFlag = false
+				doit = true
+			}
+			node.sendMu.Unlock()
+			if doit {
+				node.server.sendKafkaMsg(node.info.toKafkaMsg())
+			}
+		}
+	}
 }
 
 type BroadcastInfo struct {
